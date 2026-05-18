@@ -1,0 +1,1935 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pseudo-HITPS Simulator (GATE 10)</title>
+    <!-- Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for premium physics curves -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-base: #070a13;
+            --bg-panel: rgba(15, 22, 42, 0.65);
+            --bg-card: rgba(30, 41, 59, 0.45);
+            --border-color: rgba(255, 255, 255, 0.08);
+            
+            --proton-color: #00f2fe;
+            --proton-glow: rgba(0, 242, 254, 0.4);
+            --carbon-color: #ff416c;
+            --carbon-glow: rgba(255, 65, 108, 0.4);
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-dim: #64748b;
+            --accent-green: #10b981;
+            --accent-green-glow: rgba(16, 185, 129, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(30, 41, 150, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(100, 20, 100, 0.1) 0px, transparent 50%);
+        }
+
+        /* Header Style */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(7, 10, 19, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: linear-gradient(135deg, var(--proton-color), var(--carbon-color));
+            box-shadow: 0 0 12px rgba(0, 242, 254, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 0.9rem;
+            color: #000;
+        }
+
+        .logo-title {
+            font-weight: 600;
+            font-size: 1.15rem;
+            letter-spacing: 0.05em;
+            background: linear-gradient(to right, #fff, var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            background: rgba(16, 185, 129, 0.1);
+            padding: 0.35rem 0.75rem;
+            border-radius: 50px;
+            border: 1px solid var(--accent-green);
+            color: var(--accent-green);
+            box-shadow: 0 0 10px var(--accent-green-glow);
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-green);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 8px var(--accent-green); }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Main Workspace Layout */
+        .workspace {
+            display: grid;
+            grid-template-columns: 320px 1fr 340px;
+            flex-grow: 1;
+            gap: 1.25rem;
+            padding: 1.25rem;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Translucent Panel Card style */
+        .panel {
+            background: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            backdrop-filter: blur(16px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .panel:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .panel-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+        }
+
+        .panel-body {
+            padding: 1.25rem;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Controller Styling */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-primary);
+        }
+
+        /* Custom Toggle Switch */
+        .beam-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 0.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .technique-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 0.25rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .beam-btn {
+            background: none;
+            border: none;
+            color: var(--text-dim);
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.82rem;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .beam-btn.active.proton {
+            background: var(--proton-color);
+            color: #000;
+            box-shadow: 0 0 12px var(--proton-glow);
+        }
+
+        .beam-btn.active.carbon {
+            background: var(--carbon-color);
+            color: #fff;
+            box-shadow: 0 0 12px var(--carbon-glow);
+        }
+
+        /* Slider Design */
+        .slider-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+
+        .proton-theme input[type="range"]::-webkit-slider-thumb {
+            background: var(--proton-color);
+            box-shadow: 0 0 8px var(--proton-color);
+        }
+
+        .carbon-theme input[type="range"]::-webkit-slider-thumb {
+            background: var(--carbon-color);
+            box-shadow: 0 0 8px var(--carbon-color);
+        }
+
+        /* Simulation Canvas & Visuals */
+        .visual-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            grid-column: 2;
+        }
+
+        .phantom-viewport {
+            position: relative;
+            border-radius: 12px;
+            background: #020408;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 240px;
+        }
+
+        #phantomCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .crosshair {
+            position: absolute;
+            pointer-events: none;
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            width: 100%;
+            height: 1px;
+            top: 50%;
+            left: 0;
+            z-index: 2;
+        }
+
+        .crosshair-v {
+            position: absolute;
+            pointer-events: none;
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            width: 1px;
+            height: 100%;
+            top: 0;
+            left: 50%;
+            z-index: 2;
+        }
+
+        .nozzle-marker {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        /* Lateral Nozzle for Multi-Field */
+        .lateral-nozzle-marker {
+            position: absolute;
+            top: 10px;
+            left: 57%;
+            transform: translateX(-50%);
+            z-index: 3;
+            display: none;
+            flex-direction: row;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .nozzle-glow {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--proton-color);
+            box-shadow: 0 0 15px var(--proton-color);
+            transition: all 0.3s ease;
+        }
+
+        .proton-theme .nozzle-glow {
+            background: var(--proton-color);
+            box-shadow: 0 0 15px var(--proton-color);
+        }
+
+        .carbon-theme .nozzle-glow {
+            background: var(--carbon-color);
+            box-shadow: 0 0 15px var(--carbon-color);
+        }
+
+        /* Action Buttons */
+        .btn-action {
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+            padding: 0.85rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            letter-spacing: 0.05em;
+        }
+
+        .proton-theme .btn-action.btn-simulate {
+            background: linear-gradient(135deg, #0052d4, var(--proton-color));
+            color: #000;
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.2);
+            font-weight: 700;
+        }
+
+        .proton-theme .btn-action.btn-simulate:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(0, 242, 254, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .carbon-theme .btn-action.btn-simulate {
+            background: linear-gradient(135deg, #7b162e, var(--carbon-color));
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(255, 65, 108, 0.2);
+            font-weight: 700;
+        }
+
+        .carbon-theme .btn-action.btn-simulate:hover:not(:disabled) {
+            box-shadow: 0 6px 20px rgba(255, 65, 108, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-action:disabled {
+            background: #1e293b !important;
+            color: var(--text-dim) !important;
+            box-shadow: none !important;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        /* Telemetry Indicators Grid */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .telemetry-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            transition: all 0.2s ease;
+        }
+
+        .telemetry-card:hover {
+            background: rgba(255, 255, 255, 0.02);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .telemetry-label {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .telemetry-value {
+            font-size: 1.35rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            background: linear-gradient(to right, #fff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .proton-theme .telemetry-highlight {
+            background: linear-gradient(to right, #fff, var(--proton-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .carbon-theme .telemetry-highlight {
+            background: linear-gradient(to right, #fff, var(--carbon-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Graph Card Styles */
+        .graph-panel {
+            padding: 1rem;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #020408;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            height: 380px;
+        }
+
+        /* Notification area */
+        .notification-panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            height: 120px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+            gap: 0.25rem;
+        }
+
+        .notification-line {
+            line-height: 1.4;
+        }
+
+        .notification-line.success { color: var(--accent-green); }
+        .notification-line.beam { color: var(--proton-color); }
+        .carbon-theme .notification-line.beam { color: var(--carbon-color); }
+        .notification-line.warning { color: #f59e0b; }
+        .notification-line.error { color: #ef4444; }
+
+        /* Animation class */
+        .scanning-active {
+            animation: borderGlow 2s infinite ease-in-out;
+        }
+
+        @keyframes borderGlow {
+            0% { border-color: var(--border-color); }
+            50% { border-color: var(--proton-glow); }
+            100% { border-color: var(--border-color); }
+        }
+
+        .carbon-theme .scanning-active {
+            animation: borderGlowCarbon 2s infinite ease-in-out;
+        }
+
+        @keyframes borderGlowCarbon {
+            0% { border-color: var(--border-color); }
+            50% { border-color: var(--carbon-glow); }
+            100% { border-color: var(--border-color); }
+        }
+    </style>
+</head>
+<body class="proton-theme">
+
+    <header>
+        <div class="logo-area">
+            <div class="logo-icon">P</div>
+            <div class="logo-title">Pseudo-HITPS Simulator (GATE 10)</div>
+        </div>
+        <div class="status-badge" id="badgeContainer">
+            <div class="status-dot" id="badgeDot"></div>
+            <span id="beamStatus">BEAM NOZZLE READY</span>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <!-- Left Panel: Control Box -->
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Beam Parameters</h2>
+            </div>
+            <div class="panel-body">
+                <!-- Target Geometry -->
+                <div class="control-group">
+                    <label class="control-label">Target Geometry</label>
+                    <div class="beam-selector" id="phantomSelector">
+                        <button id="waterBtn" class="beam-btn active proton" onclick="selectPhantom('water')">水ファントム</button>
+                        <button id="patientBtn" class="beam-btn carbon" onclick="selectPhantom('patient')">患者CT (頭部)</button>
+                    </div>
+                </div>
+
+                <!-- Treatment Technique -->
+                <div class="control-group">
+                    <label class="control-label">Treatment Technique</label>
+                    <div class="technique-selector" id="techniqueSelector">
+                        <button id="singleBtn" class="beam-btn active proton" onclick="selectTechnique('single')">単一門</button>
+                        <button id="multifieldBtn" class="beam-btn carbon" onclick="selectTechnique('multifield')">多門照射</button>
+                        <button id="sobpBtn" class="beam-btn proton" onclick="selectTechnique('sobp')">SOBP</button>
+                    </div>
+                </div>
+
+                <!-- Beam type -->
+                <div class="control-group">
+                    <label class="control-label">Beam Modality</label>
+                    <div class="beam-selector">
+                        <button id="protonBtn" class="beam-btn active proton" onclick="selectBeam('proton')">陽子線 (Proton)</button>
+                        <button id="carbonBtn" class="beam-btn carbon" onclick="selectBeam('carbon')">重粒子 (Carbon-12)</button>
+                    </div>
+                </div>
+
+                <!-- Radiobiology Model (Phase 4 Upgrade) -->
+                <div class="control-group">
+                    <label class="control-label">Radiobiology Model</label>
+                    <div class="beam-selector" style="grid-template-columns: 1fr 1fr; gap: 0.25rem;">
+                        <button id="modelMkmBtn" class="beam-btn active carbon" style="font-size: 0.75rem;" onclick="selectBioModel('mkm')">MKM (日本式)</button>
+                        <button id="modelLemBtn" class="beam-btn proton" style="font-size: 0.75rem;" onclick="selectBioModel('lem')">LEM (欧州式)</button>
+                    </div>
+                </div>
+
+                <!-- Energy Slider -->
+                <div class="control-group">
+                    <label class="control-label">
+                        <span>Beam Energy</span>
+                        <span id="energyVal" class="control-value">150.0 MeV</span>
+                    </label>
+                    <div class="slider-wrapper">
+                        <input id="energySlider" type="range" min="70" max="250" step="1" value="150" oninput="updateParameters()">
+                    </div>
+                </div>
+
+                <!-- Spot Intensity (Particles) -->
+                <div class="control-group">
+                    <label class="control-label">
+                        <span>Spot Intensity</span>
+                        <span id="particlesVal" class="control-value">5,000 p</span>
+                    </label>
+                    <div class="slider-wrapper">
+                        <input id="particlesSlider" type="range" min="1000" max="50000" step="1000" value="5000" oninput="updateParameters()">
+                    </div>
+                </div>
+
+                <!-- Spot Size (Penumbra) -->
+                <div class="control-group">
+                    <label class="control-label">
+                        <span>Spot Size (FWHM)</span>
+                        <span id="spotVal" class="control-value">4.0 mm</span>
+                    </label>
+                    <div class="slider-wrapper">
+                        <input id="spotSlider" type="range" min="2.0" max="8.0" step="0.5" value="4.0" oninput="updateParameters()">
+                    </div>
+                </div>
+
+                <!-- Run control buttons -->
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: auto;">
+                    <button id="simulateBtn" class="btn-action btn-simulate" onclick="runMonteCarloSimulation()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        Simulate Irradiation
+                    </button>
+                    <button id="exportBtn" class="btn-action btn-secondary" onclick="exportTreatmentPlan()">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Export Plan Summary
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Center Panel: Visualization -->
+        <section class="visual-container">
+            <!-- 2D View -->
+            <div id="viewportPanel" class="panel" style="flex-grow: 0;">
+                <div class="panel-header">
+                    <h2 class="panel-title" id="viewportTitle">2D Longitudinal Dose Scan (Water Phantom)</h2>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-dim);" id="nozzlePosLabel">NOZZLE POS: Z = -16.0cm</span>
+                </div>
+                <div class="phantom-viewport">
+                    <canvas id="phantomCanvas"></canvas>
+                    <div class="crosshair"></div>
+                    <div class="crosshair-v" style="left: 10%;"></div>
+                    <!-- Anterior Nozzle (Z) -->
+                    <div class="nozzle-marker" id="anteriorNozzle">
+                        <div class="nozzle-glow"></div>
+                    </div>
+                    <!-- Lateral Nozzle (X) -->
+                    <div class="lateral-nozzle-marker" id="lateralNozzle">
+                        <div class="nozzle-glow"></div>
+                    </div>
+                    
+                    <!-- Microscopic DNA Helix Visualizer Overlay (Phase 4 Upgrade) -->
+                    <div id="dnaOverlay" style="position: absolute; right: 12px; bottom: 12px; width: 100px; height: 100px; border-radius: 50%; background: rgba(3, 7, 18, 0.95); border: 2px solid rgba(255, 255, 255, 0.1); box-shadow: 0 0 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; z-index: 4;">
+                        <canvas id="dnaCanvas" width="100" height="100" style="width:100%; height:100%;"></canvas>
+                        <span id="dnaStatusLabel" style="position: absolute; bottom: 4px; font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">DNA INTACT</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 1D Plot -->
+            <div class="panel" style="flex-grow: 1;">
+                <div class="panel-header" style="padding: 0.75rem 1.25rem;">
+                    <h2 class="panel-title">1D Depth-Dose Curve</h2>
+                    <!-- Display mode toggle (Phase 4 Upgrade) -->
+                    <div class="beam-selector" style="width: auto; grid-template-columns: 1fr 1fr 1fr; gap: 0.25rem;">
+                        <button id="viewPhysBtn" class="beam-btn active proton" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;" onclick="switchViewMode('physical')">物理線量</button>
+                        <button id="viewBioBtn" class="beam-btn carbon" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;" onclick="switchViewMode('biological')">生物線量</button>
+                        <button id="viewDnaBtn" class="beam-btn proton" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;" onclick="switchViewMode('dna')">DNA鎖切断</button>
+                    </div>
+                </div>
+                <div class="panel-body" style="padding: 0.75rem;">
+                    <div class="graph-panel">
+                        <canvas id="doseChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel: Telemetry Grid & Logs -->
+        <section class="panel">
+            <div class="panel-header">
+                <h2 class="panel-title">Clinical Telemetry</h2>
+            </div>
+            <div class="panel-body">
+                <div class="telemetry-grid">
+                    <div class="telemetry-card">
+                        <span class="telemetry-label" id="telLabelDepth">Target / SOBP Depth</span>
+                        <span id="peakDepthTel" class="telemetry-value telemetry-highlight">-- cm</span>
+                    </div>
+                    <div class="telemetry-card">
+                        <span class="telemetry-label" id="telLabelRatio">Peak-to-Entrance</span>
+                        <span id="ratioTel" class="telemetry-value">--</span>
+                    </div>
+                    <div class="telemetry-card">
+                        <span class="telemetry-label" id="telLabelR90">Distal R90 Range</span>
+                        <span id="r90Tel" class="telemetry-value">-- cm</span>
+                    </div>
+                    <div class="telemetry-card">
+                        <span class="telemetry-label" id="telLabelR50">Distal R50 Falloff</span>
+                        <span id="r50Tel" class="telemetry-value">-- cm</span>
+                    </div>
+                    <div class="telemetry-card">
+                        <span class="telemetry-label" id="telLabelLET">Est. LET (RBE)</span>
+                        <span id="rbeTel" class="telemetry-value">--</span>
+                    </div>
+                    <div class="telemetry-card">
+                        <span class="telemetry-label" id="telLabelDose">Peak Voxel Dose</span>
+                        <span id="maxDoseTel" class="telemetry-value">-- Gy</span>
+                    </div>
+                </div>
+
+                <div class="control-group" style="margin-top: auto;">
+                    <label class="control-label">System Terminal Log</label>
+                    <div id="logPanel" class="notification-panel">
+                        <div class="notification-line success">&gt; Pseudo-HITPS Simulator fully initialized. Connected to GATE 10 API.</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let currentBeam = 'proton';
+        let currentPhantom = 'water'; // 'water' or 'patient'
+        let currentTechnique = 'single'; // 'single', 'sobp', or 'multifield'
+        let currentViewMode = 'physical'; // 'physical', 'biological', or 'dna' (Phase 4 Upgrade)
+        let currentBioModel = 'mkm'; // 'mkm' or 'lem' (Phase 4 biophysical expansion)
+        let activeChart = null;
+        let animationFrameId = null;
+        let dnaAnimationFrameId = null;
+        let phantomCanvas = document.getElementById('phantomCanvas');
+        let ctx = phantomCanvas.getContext('2d');
+        let dnaCanvas = document.getElementById('dnaCanvas');
+        let dnaCtx = dnaCanvas.getContext('2d');
+        let animationProgress = 0;
+        let isSimulating = false;
+        
+        // Storage for theoretical (plan) vs actual scored data
+        let planCurveData = [];
+        let actualSimulationData = null;
+
+        // Initialize Canvas size on load
+        function initCanvas() {
+            const rect = phantomCanvas.getBoundingClientRect();
+            phantomCanvas.width = rect.width * window.devicePixelRatio;
+            phantomCanvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawPhantom(0);
+        }
+
+        // Initialize systems
+        window.addEventListener('load', () => {
+            initCanvas();
+            updateParameters();
+            startDnaAnimation(); // Spinning DNA canvas!
+            logMessage("System ready. Adjust parameters to preview, then Simulate to run OpenGATE.", "success");
+        });
+
+        window.addEventListener('resize', initCanvas);
+
+        // Select phantom type
+        function selectPhantom(type) {
+            if (isSimulating) return;
+            currentPhantom = type;
+            
+            const waterBtn = document.getElementById('waterBtn');
+            const patientBtn = document.getElementById('patientBtn');
+            const viewportTitle = document.getElementById('viewportTitle');
+            
+            if (type === 'water') {
+                waterBtn.className = "beam-btn active proton";
+                patientBtn.className = "beam-btn carbon";
+                viewportTitle.innerText = "2D Longitudinal Dose Scan (Water Phantom)";
+                logMessage("Selected Homogeneous Water Phantom geometry (10x10x30cm).", "success");
+            } else {
+                waterBtn.className = "beam-btn proton";
+                patientBtn.className = "beam-btn active carbon";
+                viewportTitle.innerText = "2D Sagittal CT Slice (Anatomical Head Phantom)";
+                logMessage("Selected Inhomogeneous Patient CT Phantom (Frontal Skull Bone, Sinuses, Brain, Tumor).", "warning");
+            }
+            actualSimulationData = null; // Clear old MC run
+            updateParameters();
+        }
+
+        // Select treatment planning technique
+        function selectTechnique(tech) {
+            if (isSimulating) return;
+            currentTechnique = tech;
+
+            const singleBtn = document.getElementById('singleBtn');
+            const multifieldBtn = document.getElementById('multifieldBtn');
+            const sobpBtn = document.getElementById('sobpBtn');
+            const latNozzle = document.getElementById('lateralNozzle');
+
+            // Reset classes
+            singleBtn.className = "beam-btn proton";
+            multifieldBtn.className = "beam-btn carbon";
+            sobpBtn.className = "beam-btn proton";
+
+            if (tech === 'single') {
+                singleBtn.className = "beam-btn active proton";
+                latNozzle.style.display = "none";
+                logMessage("Selected Single Anterior Port pencil beam scanning.", "success");
+            } else if (tech === 'multifield') {
+                multifieldBtn.className = "beam-btn active carbon";
+                latNozzle.style.display = "flex"; // Show side nozzle!
+                logMessage("Selected Multi-Field planning: Co-planar Anterior + Lateral cross-firing.", "warning");
+            } else if (tech === 'sobp') {
+                sobpBtn.className = "beam-btn active proton";
+                latNozzle.style.display = "none";
+                logMessage("Selected SOBP technique: Multi-energy stacked scanning.", "success");
+            }
+            actualSimulationData = null; // Clear old MC run
+            updateParameters();
+        }
+
+        // Select beam type
+        function selectBeam(type) {
+            if (isSimulating) return;
+            currentBeam = type;
+            
+            const energySlider = document.getElementById('energySlider');
+            const particlesSlider = document.getElementById('particlesSlider');
+            if (type === 'proton') {
+                document.body.className = "proton-theme";
+                document.getElementById('protonBtn').classList.add('active');
+                document.getElementById('carbonBtn').classList.remove('active');
+                energySlider.min = 70;
+                energySlider.max = 250;
+                energySlider.value = 150;
+                particlesSlider.value = 5000;
+                logMessage("Switched modality to Protons (1H). QGSP_BIC_HP physics preloaded.", "beam");
+            } else {
+                document.body.className = "carbon-theme";
+                document.getElementById('protonBtn').classList.remove('active');
+                document.getElementById('carbonBtn').classList.add('active');
+                energySlider.min = 100;
+                energySlider.max = 430;
+                energySlider.value = 290;
+                particlesSlider.value = 5000;
+                logMessage("Switched modality to Carbon Ions (12C). High LET scaling active.", "beam");
+            }
+            actualSimulationData = null; // Clear old MC run
+            updateParameters();
+        }
+
+        // Switch View Modes (Phase 4 Upgrade)
+        function switchViewMode(mode) {
+            currentViewMode = mode;
+            
+            const viewPhysBtn = document.getElementById('viewPhysBtn');
+            const viewBioBtn = document.getElementById('viewBioBtn');
+            const viewDnaBtn = document.getElementById('viewDnaBtn');
+            
+            viewPhysBtn.className = "beam-btn proton";
+            viewBioBtn.className = "beam-btn carbon";
+            viewDnaBtn.className = "beam-btn proton";
+            
+            if (mode === 'physical') {
+                viewPhysBtn.className = "beam-btn active proton";
+                logMessage("Switched graph to Macroscopic Physical Absorbed Dose (Gy).", "success");
+            } else if (mode === 'biological') {
+                viewBioBtn.className = "beam-btn active carbon";
+                logMessage("Switched graph to Biophysical Biological Dose (Gy(RBE)).", "warning");
+            } else if (mode === 'dna') {
+                viewDnaBtn.className = "beam-btn active proton";
+                logMessage("Switched graph to Microscopic Cellular DNA Damage (breaks/cell).", "success");
+            }
+            
+            updateParameters();
+        }
+
+        // Select Biophysical Radiobiology Model (Phase 4 biophysical expansion)
+        function selectBioModel(model) {
+            if (isSimulating) return;
+            currentBioModel = model;
+            
+            const mkmBtn = document.getElementById('modelMkmBtn');
+            const lemBtn = document.getElementById('modelLemBtn');
+            
+            mkmBtn.className = "beam-btn carbon";
+            lemBtn.className = "beam-btn proton";
+            
+            if (model === 'mkm') {
+                mkmBtn.className = "beam-btn active carbon";
+                logMessage("Selected MKM (Microdosimetric Kinetic Model) standard for Japanese Clinical Heavy-Ion planning.", "success");
+            } else {
+                lemBtn.className = "beam-btn active proton";
+                logMessage("Selected LEM (Local Effect Model) standard for European Clinical Heavy-Ion planning.", "warning");
+            }
+            actualSimulationData = null; // Clear old MC run
+            updateParameters();
+        }
+
+        // Log message to virtual console
+        function logMessage(text, className = '') {
+            const logPanel = document.getElementById('logPanel');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `notification-line ${className}`;
+            div.innerHTML = `[${time}] ${text}`;
+            logPanel.appendChild(div);
+            
+            // Scroll to bottom
+            logPanel.scrollTop = logPanel.scrollHeight;
+        }
+
+        // Calculate Water Equivalent Path Length (WEPL)
+        function calculateWEPL(z) {
+            let wepl = 0;
+            const step = 0.05; // 0.5 mm steps
+            for (let d = 0; d < z; d += step) {
+                let density = 1.0; // default soft tissue
+                if (d < 3.0) {
+                    density = 0.001; // Entrance air
+                } else if (d >= 3.0 && d < 3.5) {
+                    density = 1.85; // Frontal skull bone
+                } else if (d >= 3.5 && d < 6.6) {
+                    density = 0.001; // Sinus air cavity
+                } else if (d >= 27.0 && d < 27.5) {
+                    density = 1.85; // Rear skull bone
+                } else if (d >= 27.5) {
+                    density = 0.001; // Rear air
+                }
+                wepl += density * step;
+            }
+            return wepl;
+        }
+
+        // Core planning physics solver for plan previews (Phase 4 upgraded with biological & DNA)
+        function calculatePlanDoseCurve(type, energy, particles, spotSize) {
+            let R = 0; // Bragg Peak Range in water-equivalent length (cm)
+            let sigma = 0; // range straggling width (cm)
+            let peakToEntrance = 0;
+            let data = [];
+            const numPoints = 300;
+            
+            if (type === 'proton') {
+                R = 0.002193 * Math.pow(energy, 1.77);
+                sigma = 0.012 * R + 0.08;
+                peakToEntrance = 5.11;
+            } else {
+                R = 0.000695 * Math.pow(energy, 1.77);
+                sigma = 0.004 * R + 0.03;
+                peakToEntrance = 4.89;
+            }
+
+            // Generate single Bragg Peak curve function at depth z (for water-equivalent path)
+            function getSingleBraggDose(z_wed, R_val, w = 1.0) {
+                let dose = 0;
+                if (z_wed <= R_val) {
+                    let plateau = 1.0 + 0.45 * (z_wed / R_val);
+                    let peak = (peakToEntrance - 1.45) * Math.exp(-Math.pow(z_wed - R_val, 2) / (2 * Math.pow(sigma, 2)));
+                    dose = (plateau + peak) * w;
+                } else {
+                    if (type === 'proton') {
+                        dose = peakToEntrance * Math.exp(-Math.pow(z_wed - R_val, 2) / (2 * Math.pow(sigma, 2))) * w;
+                    } else {
+                        let peakPart = (peakToEntrance - 0.45) * Math.exp(-Math.pow(z_wed - R_val, 2) / (2 * Math.pow(sigma, 2)));
+                        let tailPart = 0.45 * Math.exp(-(z_wed - R_val) / 4.5);
+                        dose = (peakPart + tailPart) * w;
+                    }
+                }
+                return dose;
+            }
+
+            for (let i = 0; i < numPoints; i++) {
+                let z = (i / numPoints) * 30.0;
+                let dose = 0;
+                
+                if (currentPhantom === 'water') {
+                    // WATER PHANTOM MODE
+                    if (currentTechnique === 'sobp') {
+                        const energies_shifted = [R, R - 1.2, R - 2.4];
+                        const weights = [1.0, 0.55, 0.35];
+                        const total_w = weights.reduce((a, b) => a + b, 0);
+                        
+                        let combined = 0;
+                        for (let k = 0; k < 3; k++) {
+                            if (energies_shifted[k] > 0.5) {
+                                combined += getSingleBraggDose(z, energies_shifted[k], weights[k]);
+                            }
+                        }
+                        dose = (combined / total_w) * 1.5;
+                    } else if (currentTechnique === 'multifield') {
+                        let ant_dose = getSingleBraggDose(z, R, 0.5);
+                        let lat_dose = 0;
+                        if (Math.abs(z - R) <= 0.8) {
+                            lat_dose = peakToEntrance * 0.5 * Math.exp(-Math.pow(z - R, 2) / (2 * Math.pow(sigma, 2)));
+                        }
+                        dose = ant_dose + lat_dose;
+                    } else {
+                        dose = getSingleBraggDose(z, R, 1.0);
+                    }
+                } else {
+                    // PATIENT CT PHANTOM MODE
+                    let z_wed = calculateWEPL(z);
+                    
+                    let density = 1.0;
+                    let isAir = false;
+                    let isBone = false;
+                    
+                    if (z < 3.0) { isAir = true; density = 0.001; }
+                    else if (z >= 3.0 && z < 3.5) { isBone = true; density = 1.85; }
+                    else if (z >= 3.5 && z < 6.6) { isAir = true; density = 0.001; }
+                    else if (z >= 27.0 && z < 27.5) { isBone = true; density = 1.85; }
+                    else if (z >= 27.5) { isAir = true; density = 0.001; }
+                    
+                    if (isAir) {
+                        dose = 0.01;
+                    } else {
+                        if (currentTechnique === 'sobp') {
+                            const energies_shifted = [R, R - 1.2, R - 2.4];
+                            const weights = [1.0, 0.55, 0.35];
+                            const total_w = weights.reduce((a, b) => a + b, 0);
+                            
+                            let combined = 0;
+                            for (let k = 0; k < 3; k++) {
+                                if (energies_shifted[k] > 0.5) {
+                                    combined += getSingleBraggDose(z_wed, energies_shifted[k], weights[k]);
+                                }
+                            }
+                            dose = (combined / total_w) * 1.5;
+                        } else if (currentTechnique === 'multifield') {
+                            let ant_dose = getSingleBraggDose(z_wed, R, 0.5);
+                            let lat_dose = 0;
+                            if (Math.abs(z - 17.0) <= 1.2) {
+                                lat_dose = peakToEntrance * 0.5 * Math.exp(-Math.pow(z - 17.0, 2) / (2 * Math.pow(sigma, 2)));
+                            }
+                            dose = ant_dose + lat_dose;
+                        } else {
+                            dose = getSingleBraggDose(z_wed, R, 1.0);
+                        }
+                        
+                        if (isBone) {
+                            dose = dose * 1.35;
+                        }
+                    }
+                }
+                
+                // Scale dose by particles intensity
+                dose = dose * (particles / 5000);
+                if (dose < 0.001) dose = 0;
+                
+                // Switch dose coordinates depending on the View Mode (Phase 4 Upgrade)
+                let finalVal = dose;
+                
+                // Biophysical plan estimation for previews
+                if (currentViewMode === 'biological') {
+                    // Plan RBE estimation
+                    let rbe_est = 1.0;
+                    if (type === 'proton') {
+                        rbe_est = 1.10 + 0.25 * (z / 30.0);
+                    } else {
+                        // Carbon RBE spikes right in the tumor Bragg peak
+                        let tumorCenter = (currentPhantom === 'water') ? R : 17.0;
+                        if (currentBioModel === 'mkm') {
+                            // MKM: domain saturation overkill peak
+                            rbe_est = 1.0 + 3.5 * Math.exp(-Math.pow(z - tumorCenter, 2) / (2 * Math.pow(1.5, 2)));
+                        } else {
+                            // LEM: sigmoidal track overlap plateau
+                            rbe_est = 1.0 + 3.5 / (1.0 + Math.exp(-(z - (tumorCenter - 1.5)) / 0.8));
+                        }
+                    }
+                    finalVal = dose * rbe_est;
+                } else if (currentViewMode === 'dna') {
+                    // DNA breaks/cell plan estimation
+                    let ssb_est = 80.0 * dose;
+                    let dsb_est = (type === 'proton' ? 20.0 : 55.0) * dose;
+                    finalVal = dsb_est; // Default DNA graph to DSBs inside planning previews
+                }
+                
+                data.push({ x: z, y: finalVal });
+            }
+
+            // Calculate range in physical depth (cm)
+            let physRange = R;
+            if (currentPhantom === 'patient') {
+                physRange = 30.0;
+                for (let i = 0; i < numPoints; i++) {
+                    let z = (i / numPoints) * 30.0;
+                    if (calculateWEPL(z) >= R) {
+                        physRange = z;
+                        break;
+                    }
+                }
+            }
+
+            let r90 = physRange + 0.6 * sigma;
+            let r50 = physRange + 1.2 * sigma;
+            let rbe = (type === 'proton') ? 1.10 : 3.0;
+
+            return { data, range: physRange, peakVal: peakToEntrance, r90, r50, rbe };
+        }
+
+        // Draw 2D Phantom Scan Animation
+        function drawPhantom(progress = 0) {
+            const w = phantomCanvas.width / window.devicePixelRatio;
+            const h = phantomCanvas.height / window.devicePixelRatio;
+            
+            // Clear
+            ctx.fillStyle = '#020408';
+            ctx.fillRect(0, 0, w, h);
+            
+            // Draw boundaries
+            const phX = w * 0.12;
+            const phY = h * 0.15;
+            const phW = w * 0.83;
+            const phH = h * 0.7;
+            
+            if (currentPhantom === 'water') {
+                ctx.fillStyle = 'rgba(30, 41, 150, 0.12)';
+                ctx.fillRect(phX, phY, phW, phH);
+                
+                ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+                ctx.lineWidth = 1;
+                for(let x = phX; x < phX + phW; x += phW/15) {
+                    ctx.beginPath();
+                    ctx.moveTo(x, phY);
+                    ctx.lineTo(x, phY + phH);
+                    ctx.stroke();
+                }
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.strokeRect(phX, phY, phW, phH);
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.25)';
+                ctx.font = 'bold 9px "JetBrains Mono"';
+                ctx.fillText("H2O PHANTOM (10x10x30cm)", phX + 10, phY + 15);
+            } else {
+                // Sagittal Slice
+                ctx.fillStyle = '#0a0e1a';
+                ctx.fillRect(phX, phY, phW, phH);
+                
+                const headX = phX + phW * 0.1;
+                const headW = phW * 0.8;
+                const headY = phY + phH * 0.05;
+                const headH = phH * 0.9;
+                
+                ctx.fillStyle = 'rgba(45, 55, 72, 0.85)';
+                ctx.beginPath();
+                ctx.ellipse(headX + headW/2, headY + headH/2, headW/2, headH/2, 0, 0, 2*Math.PI);
+                ctx.fill();
+                
+                ctx.strokeStyle = 'rgba(240, 240, 245, 0.95)';
+                ctx.lineWidth = 6;
+                ctx.stroke();
+                
+                const sinusX = phX + phW * 0.23;
+                const sinusY = phY + phH * 0.5;
+                const sinusR = phH * 0.15;
+                
+                ctx.fillStyle = '#020408';
+                ctx.beginPath();
+                ctx.arc(sinusX, sinusY, sinusR, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.stroke();
+                
+                const tumorX = phX + phW * 0.57;
+                const tumorY = phY + phH * 0.5;
+                const tumorR = phH * 0.12;
+                
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.35)';
+                ctx.beginPath();
+                ctx.arc(tumorX, tumorY, tumorR, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(167, 139, 250, 0.8)';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(tumorX - tumorR - 5, tumorY);
+                ctx.lineTo(tumorX + tumorR + 5, tumorY);
+                ctx.moveTo(tumorX, tumorY - tumorR - 5);
+                ctx.lineTo(tumorX, tumorY + tumorR + 5);
+                ctx.stroke();
+                
+                ctx.fillStyle = 'rgba(255,255,255,0.45)';
+                ctx.font = 'bold 9px "JetBrains Mono"';
+                ctx.fillText("PATIENT HEAD CT SCAN (SAGITTAL)", phX + 15, phY + 20);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.85)';
+                ctx.fillText("TARGET BRAIN TUMOR (PTV)", tumorX - 55, tumorY - tumorR - 5);
+                ctx.fillStyle = 'rgba(240, 240, 245, 0.8)';
+                ctx.fillText("SKULL BONE", headX + headW/2 - 30, headY + 14);
+                ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+                ctx.fillText("SINUS AIR", sinusX - 25, sinusY - sinusR - 5);
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.strokeRect(phX, phY, phW, phH);
+            }
+            
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.font = 'bold 9px "JetBrains Mono"';
+            ctx.fillText("Z=0.0cm (Entrance)", phX + 5, phY + phH + 12);
+            ctx.fillText("Z=30.0cm", phX + phW - 55, phY + phH + 12);
+            
+            let range = 0;
+            let spotSize = parseFloat(document.getElementById('spotSlider').value);
+            
+            if (actualSimulationData) {
+                range = actualSimulationData.range;
+            } else {
+                const energy = parseFloat(document.getElementById('energySlider').value);
+                const particles = parseInt(document.getElementById('particlesSlider').value);
+                const physics = calculatePlanDoseCurve(currentBeam, energy, particles, spotSize);
+                range = physics.range;
+            }
+            
+            const peakPercent = range / 30.0;
+            const peakPixelX = phX + phW * peakPercent;
+            
+            if (progress > 0) {
+                const beamColor = (currentBeam === 'proton') ? '0, 242, 254' : '255, 65, 108';
+                
+                // Anterior Scanning Nozzle Beam Line
+                const gradient = ctx.createLinearGradient(phX, 0, phX + phW, 0);
+                gradient.addColorStop(0, `rgba(${beamColor}, 0.02)`);
+                
+                if (currentPhantom === 'patient') {
+                    const boneStart = 3.0 / 30.0;
+                    const boneEnd = 3.5 / 30.0;
+                    const sinusStart = 3.5 / 30.0;
+                    const sinusEnd = 6.6 / 30.0;
+                    
+                    gradient.addColorStop(boneStart, `rgba(${beamColor}, 0.15)`);
+                    gradient.addColorStop(boneEnd, `rgba(${beamColor}, 0.4)`);
+                    gradient.addColorStop(sinusStart, `rgba(${beamColor}, 0.01)`);
+                    gradient.addColorStop(sinusEnd, `rgba(${beamColor}, 0.01)`);
+                    
+                    const midGlow = Math.max(sinusEnd, peakPercent - 0.04);
+                    gradient.addColorStop(midGlow, `rgba(${beamColor}, 0.2)`);
+                } else {
+                    const midGlow = Math.max(0, peakPercent - 0.04);
+                    gradient.addColorStop(midGlow, `rgba(${beamColor}, 0.25)`);
+                }
+                
+                gradient.addColorStop(peakPercent, `rgba(${beamColor}, ${0.9 * progress})`);
+                
+                const endGlow = Math.min(1, peakPercent + 0.04);
+                if (currentBeam === 'proton') {
+                    gradient.addColorStop(endGlow, `rgba(${beamColor}, 0)`);
+                } else {
+                    gradient.addColorStop(endGlow, `rgba(${beamColor}, 0.08)`);
+                    gradient.addColorStop(1, `rgba(${beamColor}, ${0.08 * progress})`);
+                }
+                
+                ctx.fillStyle = gradient;
+                
+                // SOBP Multi-energy Raster sweeps the nozzle Y and colors!
+                let scanLineY = h * 0.5 + Math.sin(progress * 12 * Math.PI) * (phH * 0.3 * progress);
+                if (currentTechnique === 'sobp') {
+                    // Extra raster scan visual depth sweep!
+                    scanLineY = h * 0.5 + Math.sin(progress * 18 * Math.PI) * (phH * 0.2 * progress);
+                }
+                
+                ctx.beginPath();
+                ctx.moveTo(phX, h * 0.5 - (spotSize * 2));
+                ctx.lineTo(peakPixelX, scanLineY - (spotSize * 0.5));
+                ctx.lineTo(peakPixelX, scanLineY + (spotSize * 0.5));
+                ctx.lineTo(phX, h * 0.5 + (spotSize * 2));
+                ctx.closePath();
+                ctx.fill();
+
+                // Lateral Scanning Nozzle Beam Line (Multi-Field)
+                if (currentTechnique === 'multifield') {
+                    const tumorX = phX + phW * 0.57;
+                    
+                    const latGradient = ctx.createLinearGradient(0, phY, 0, phY + phH);
+                    latGradient.addColorStop(0, `rgba(${beamColor}, 0.02)`);
+                    latGradient.addColorStop(0.1, `rgba(${beamColor}, 0.15)`);
+                    latGradient.addColorStop(0.15, `rgba(${beamColor}, 0.35)`);
+                    latGradient.addColorStop(0.45, `rgba(${beamColor}, 0.2)`);
+                    latGradient.addColorStop(0.5, `rgba(${beamColor}, ${0.9 * progress})`);
+                    latGradient.addColorStop(0.55, 'rgba(0,0,0,0)');
+                    
+                    ctx.fillStyle = latGradient;
+                    
+                    const latScanX = tumorX + Math.sin(progress * 10 * Math.PI + 1) * (phW * 0.08 * progress);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(tumorX - (spotSize * 2), phY);
+                    ctx.lineTo(latScanX - (spotSize * 0.5), phY + phH * 0.5);
+                    ctx.lineTo(latScanX + (spotSize * 0.5), phY + phH * 0.5);
+                    ctx.lineTo(tumorX + (spotSize * 2), phY);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(tumorX, h * 0.02);
+                    ctx.lineTo(tumorX, phY);
+                    ctx.stroke();
+                }
+                
+                // Bragg Peak Target Glow Overlay
+                let glowRadius = 24 * spotSize / 4;
+                if (currentTechnique === 'sobp') {
+                    glowRadius = 38 * spotSize / 4;
+                }
+                
+                const radGlow = ctx.createRadialGradient(peakPixelX, scanLineY, 2, peakPixelX, scanLineY, glowRadius);
+                radGlow.addColorStop(0, '#fff');
+                radGlow.addColorStop(0.2, (currentBeam === 'proton') ? 'rgba(0, 242, 254, 0.95)' : 'rgba(255, 65, 108, 0.95)');
+                
+                if (currentTechnique === 'multifield' && currentPhantom === 'patient') {
+                    const tumorX = phX + phW * 0.57;
+                    const tumorY = phY + phH * 0.5;
+                    const overlapGlow = ctx.createRadialGradient(tumorX, tumorY, 1, tumorX, tumorY, 32);
+                    overlapGlow.addColorStop(0, '#fff');
+                    overlapGlow.addColorStop(0.3, 'rgba(253, 224, 71, 0.95)');
+                    overlapGlow.addColorStop(0.7, (currentBeam === 'proton') ? 'rgba(0, 242, 254, 0.4)' : 'rgba(255, 65, 108, 0.4)');
+                    overlapGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = overlapGlow;
+                    ctx.beginPath();
+                    ctx.arc(tumorX, tumorY, 32, 0, 2 * Math.PI);
+                    ctx.fill();
+                } else {
+                    radGlow.addColorStop(0.6, (currentBeam === 'proton') ? 'rgba(0, 242, 254, 0.3)' : 'rgba(255, 65, 108, 0.3)');
+                    radGlow.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = radGlow;
+                    ctx.beginPath();
+                    ctx.arc(peakPixelX, scanLineY, glowRadius + 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.03, h * 0.5);
+                ctx.lineTo(phX, h * 0.5);
+                ctx.stroke();
+            }
+        }
+
+        // Live parameter updates
+        function updateParameters() {
+            const energy = parseFloat(document.getElementById('energySlider').value);
+            const particles = parseInt(document.getElementById('particlesSlider').value);
+            const spotSize = parseFloat(document.getElementById('spotSlider').value);
+            
+            const energyUnit = (currentBeam === 'proton') ? 'MeV' : 'MeV/u';
+            document.getElementById('energyVal').innerText = `${energy.toFixed(1)} ${energyUnit}`;
+            document.getElementById('particlesVal').innerText = `${particles.toLocaleString()} p`;
+            document.getElementById('spotVal').innerText = `${spotSize.toFixed(1)} mm`;
+
+            // Calculate current plan profile preview
+            const planPhysics = calculatePlanDoseCurve(currentBeam, energy, particles, spotSize);
+            planCurveData = planPhysics.data;
+
+            // Telemetry elements
+            const peakDepthTel = document.getElementById('peakDepthTel');
+            const ratioTel = document.getElementById('ratioTel');
+            const r90Tel = document.getElementById('r90Tel');
+            const r50Tel = document.getElementById('r50Tel');
+            const rbeTel = document.getElementById('rbeTel');
+            const maxDoseTel = document.getElementById('maxDoseTel');
+            
+            // Labels
+            const telLabelDepth = document.getElementById('telLabelDepth');
+            const telLabelRatio = document.getElementById('telLabelRatio');
+            const telLabelR90 = document.getElementById('telLabelR90');
+            const telLabelR50 = document.getElementById('telLabelR50');
+            const telLabelLET = document.getElementById('telLabelLET');
+            const telLabelDose = document.getElementById('telLabelDose');
+
+            // Reset labels default
+            telLabelDepth.innerText = "Target / SOBP Depth";
+            telLabelRatio.innerText = "Peak-to-Entrance";
+            telLabelR90.innerText = "Distal R90 Range";
+            telLabelR50.innerText = "Distal R50 Falloff";
+            telLabelLET.innerText = "Est. LET (RBE)";
+            telLabelDose.innerText = "Peak Voxel Dose";
+
+            if (actualSimulationData) {
+                // DISPLAY SCORED BIOLOGICAL RESULTS (Phase 4 Upgrade)
+                const maxLET = Math.max(...actualSimulationData.let);
+                const maxRBE = Math.max(...actualSimulationData.rbe);
+                const minSurvival = Math.min(...actualSimulationData.survival);
+                const maxDSB = Math.max(...actualSimulationData.dsb);
+                
+                if (currentViewMode === 'dna') {
+                    // DNA VIEW LABELS & VALUE SETTINGS
+                    telLabelDepth.innerText = "Cell Death Zone";
+                    peakDepthTel.innerText = `${actualSimulationData.range.toFixed(1)} cm`;
+                    
+                    telLabelRatio.innerText = "Max Voxel DSBs";
+                    ratioTel.innerText = `${maxDSB.toFixed(1)} /cell`;
+                    
+                    telLabelR90.innerText = "Max Voxel SSBs";
+                    r90Tel.innerText = `${Math.max(...actualSimulationData.ssb).toFixed(0)} /cell`;
+                    
+                    telLabelR50.innerText = "DNA Break Density";
+                    r50Tel.innerText = "HIGH CLUSTER";
+                    
+                    telLabelLET.innerText = "Est. Tumor LET";
+                    rbeTel.innerText = `${maxLET.toFixed(1)} keV/μm`;
+                    
+                    telLabelDose.innerText = "Tumor Cell Survival";
+                    maxDoseTel.innerHTML = `<span style="color:#ef4444; font-weight:800;">${minSurvival.toFixed(2)} %</span>`;
+                } else if (currentViewMode === 'biological') {
+                    // BIOLOGICAL DOSE VIEW LABELS & SETTINGS
+                    telLabelDepth.innerText = "Bio-Dose Peak Depth";
+                    peakDepthTel.innerText = `${actualSimulationData.range.toFixed(2)} cm`;
+                    
+                    telLabelRatio.innerText = "Bio Peak-to-Entrance";
+                    const bioPeakVal = actualSimulationData.peakVal * maxRBE;
+                    ratioTel.innerText = `${bioPeakVal.toFixed(2)}x`;
+                    
+                    telLabelR90.innerText = "Bio Distal R90";
+                    r90Tel.innerText = `${actualSimulationData.r90.toFixed(2)} cm`;
+                    
+                    telLabelR50.innerText = "Bio Distal R50";
+                    r50Tel.innerText = `${actualSimulationData.r50.toFixed(2)} cm`;
+                    
+                    telLabelLET.innerText = "Max Local RBE";
+                    rbeTel.innerText = `${maxRBE.toFixed(2)}`;
+                    
+                    telLabelDose.innerText = "Peak Biological Dose";
+                    const bioPeakDose = 2.0 * maxRBE;
+                    maxDoseTel.innerText = `${bioPeakDose.toFixed(2)} Gy(RBE)`;
+                } else {
+                    // PHYSICAL DOSE VIEW
+                    peakDepthTel.innerText = `${actualSimulationData.range.toFixed(2)} cm`;
+                    ratioTel.innerText = `${actualSimulationData.peakVal.toFixed(2)}x`;
+                    r90Tel.innerText = `${actualSimulationData.r90.toFixed(2)} cm`;
+                    r50Tel.innerText = `${actualSimulationData.r50.toFixed(2)} cm`;
+                    rbeTel.innerText = `${actualSimulationData.rbe_factor.toFixed(2)}`;
+                    
+                    const planMaxDose = (particles / 5000) * (currentBeam === 'proton' ? 84.2 : 124.6);
+                    maxDoseTel.innerText = `${planMaxDose.toFixed(1)} Gy`;
+                }
+            } else {
+                // DISPLAY PREVIEW PLANNING PARAMETERS
+                let rangeLabel = `${planPhysics.range.toFixed(2)} cm`;
+                if (currentTechnique === 'sobp') {
+                    const modWidth = 2.4;
+                    rangeLabel = `${(planPhysics.range - modWidth).toFixed(1)} - ${planPhysics.range.toFixed(1)} cm`;
+                }
+                
+                peakDepthTel.innerHTML = `<span style="opacity: 0.5;">${rangeLabel}</span>`;
+                r90Tel.innerHTML = `<span style="opacity: 0.5;">${planPhysics.r90.toFixed(2)} cm</span>`;
+                r50Tel.innerHTML = `<span style="opacity: 0.5;">${planPhysics.r50.toFixed(2)} cm</span>`;
+                
+                let ratioVal = planPhysics.peakVal.toFixed(2);
+                if (currentTechnique === 'multifield') {
+                    ratioVal = (planPhysics.peakVal * 1.85).toFixed(2) + " (スパリング)";
+                }
+                ratioTel.innerHTML = `<span style="opacity: 0.5;">${ratioVal}</span>`;
+                rbeTel.innerHTML = `<span style="opacity: 0.5;">${planPhysics.rbe.toFixed(2)}</span>`;
+                
+                const planMaxDose = (particles / 5000) * (currentBeam === 'proton' ? 84.2 : 124.6);
+                maxDoseTel.innerHTML = `<span style="opacity: 0.5;">${planMaxDose.toFixed(1)} Gy</span>`;
+            }
+
+            refreshChart();
+            if (!isSimulating) {
+                drawPhantom(0);
+            }
+        }
+
+        // Draw and Update Chart.js curve (Phase 4 Upgraded for Biological and DNA breaks multi-curves!)
+        function refreshChart() {
+            const ctxChart = document.getElementById('doseChart').getContext('2d');
+            const color = (currentBeam === 'proton') ? '#00f2fe' : '#ff416c';
+            const labelPlan = `Prescribed Plan Preview (${currentViewMode.toUpperCase()})`;
+            const labelScored = `Scored Dose (OpenGATE 10 MC)`;
+            
+            const datasets = [];
+
+            // 1. ADD PLAN PREVIEW DATASET
+            datasets.push({
+                label: labelPlan,
+                data: planCurveData,
+                borderColor: 'rgba(255, 255, 255, 0.25)',
+                borderWidth: 2,
+                borderDash: [5, 5],
+                pointRadius: 0,
+                tension: 0.1,
+                fill: false
+            });
+
+            // 2. ADD REAL MC DATASETS
+            if (actualSimulationData) {
+                const voxel_size_cm = 30.0 / actualSimulationData.dose.length;
+                
+                if (currentViewMode === 'dna') {
+                    // DNA VIEW: PLOT SINGLE-STRAND BREAKS (BLUE) & DOUBLE-STRAND BREAKS (RED)
+                    const ssbCoords = actualSimulationData.ssb.map((val, idx) => {
+                        return { x: idx * voxel_size_cm + (voxel_size_cm/2.0), y: val };
+                    });
+                    
+                    const dsbCoords = actualSimulationData.dsb.map((val, idx) => {
+                        return { x: idx * voxel_size_cm + (voxel_size_cm/2.0), y: val };
+                    });
+                    
+                    datasets.push({
+                        label: "Single-Strand Breaks (SSB - Easily Repaired)",
+                        data: ssbCoords,
+                        borderColor: '#3b82f6', // Bright blue
+                        borderWidth: 3,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false
+                    });
+                    
+                    datasets.push({
+                        label: "Double-Strand Breaks (DSB - Fatal Clustered Damage)",
+                        data: dsbCoords,
+                        borderColor: '#ef4444', // Neon red
+                        borderWidth: 3.5,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false
+                    });
+                } else if (currentViewMode === 'biological') {
+                    // BIOLOGICAL DOSE VIEW: PLOT BOTH PHYSICAL DOSE & BIOLOGICAL DOSE (PHYS * RBE)
+                    // Normalize scored physical dose to peak at 2.0 Gy
+                    const maxPhys = Math.max(...actualSimulationData.dose);
+                    
+                    const physCoords = actualSimulationData.dose.map((val, idx) => {
+                        const doseGy = 2.0 * (val / maxPhys);
+                        return { x: idx * voxel_size_cm + (voxel_size_cm/2.0), y: doseGy };
+                    });
+                    
+                    const bioCoords = actualSimulationData.bio_dose.map((val, idx) => {
+                        const bioDoseGy = 2.0 * (val / maxPhys);
+                        return { x: idx * voxel_size_cm + (voxel_size_cm/2.0), y: bioDoseGy };
+                    });
+                    
+                    datasets.push({
+                        label: "Physical Absorbed Dose (Gy)",
+                        data: physCoords,
+                        borderColor: 'rgba(255, 255, 255, 0.4)',
+                        borderWidth: 2,
+                        borderDash: [3, 3],
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false
+                    });
+                    
+                    datasets.push({
+                        label: `Biological Dose (Gy(RBE))`,
+                        data: bioCoords,
+                        borderColor: color,
+                        borderWidth: 3.5,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false
+                    });
+                } else {
+                    // PHYSICAL ABSORBED DOSE VIEW
+                    const scoreCoords = actualSimulationData.dose.map((val, idx) => {
+                        return { x: idx * voxel_size_cm + (voxel_size_cm/2.0), y: val };
+                    });
+                    
+                    datasets.push({
+                        label: labelScored,
+                        data: scoreCoords,
+                        borderColor: color,
+                        borderWidth: 3.5,
+                        pointRadius: 0,
+                        tension: 0.1,
+                        fill: false
+                    });
+                }
+            }
+
+            const chartData = { datasets };
+
+            // Dynamically set Y-axis title based on view mode
+            let yTitle = 'Relative Dose / Energy Deposition';
+            if (currentViewMode === 'biological') {
+                yTitle = 'Equivalent Dose (Gy / Gy(RBE))';
+            } else if (currentViewMode === 'dna') {
+                yTitle = 'Mean Genetic Breaks per Cell';
+            }
+
+            if (activeChart) {
+                activeChart.data = chartData;
+                activeChart.options.scales.y.title.text = yTitle;
+                activeChart.update('none');
+            } else {
+                activeChart = new Chart(ctxChart, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                position: 'bottom',
+                                title: { display: true, text: 'Depth in Patient/Water Phantom (cm)', color: '#94a3b8' },
+                                ticks: { color: '#64748b' },
+                                grid: { color: 'rgba(255,255,255,0.03)' },
+                                min: 0,
+                                max: 30
+                            },
+                            y: {
+                                title: { display: true, text: yTitle, color: '#94a3b8' },
+                                ticks: { color: '#64748b' },
+                                grid: { color: 'rgba(255,255,255,0.03)' },
+                                min: 0
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                labels: { color: '#f8fafc', font: { family: 'Outfit' } }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Asynchronously call server to run OpenGATE
+        async function runMonteCarloSimulation() {
+            if (isSimulating) return;
+            isSimulating = true;
+            actualSimulationData = null;
+            
+            setUILocked(true);
+            
+            const energy = parseFloat(document.getElementById('energySlider').value);
+            const particles = parseInt(document.getElementById('particlesSlider').value);
+            
+            logMessage(`--------------------------------------------------------------------------------`, "success");
+            logMessage(`&gt; Launching OpenGATE 10 Monte Carlo Simulation...`, "beam");
+            logMessage(`&gt; Target: ${currentPhantom.toUpperCase()} | Technique: ${currentTechnique.toUpperCase()} | Modality: ${currentBeam.toUpperCase()}`, "beam");
+            
+            if (currentPhantom === 'patient') {
+                logMessage(`&gt; Geant4: Loading voxelized CT header (patient_ct.mhd, dim 60x60x300)...`);
+                logMessage(`&gt; Geant4: Mapping Hounsfield Units (-1500 to +3000) to Geant4 materials...`);
+                logMessage(`&gt; Biophysics: Cell Survival Fraction (LQ model) active for Carbon/Protons...`);
+            } else {
+                logMessage(`&gt; Geant4: Initializing homogeneous water geometry volumes & QGSP_BIC_HP physics...`);
+            }
+            
+            const badgeContainer = document.getElementById('badgeContainer');
+            const badgeDot = document.getElementById('badgeDot');
+            const beamStatus = document.getElementById('beamStatus');
+            
+            badgeContainer.style.background = 'rgba(245, 158, 11, 0.1)';
+            badgeContainer.style.borderColor = '#f59e0b';
+            badgeDot.style.backgroundColor = '#f59e0b';
+            beamStatus.style.color = '#f59e0b';
+            beamStatus.innerText = "RUNNING MONTE CARLO (OpenGATE)";
+            
+            document.getElementById('viewportPanel').classList.add('scanning-active');
+
+            let logTimer = 0;
+            const logInterval = setInterval(() => {
+                logTimer++;
+                if (logTimer === 2) logMessage("&gt; Geant4: Initializing tracking manager & magnetic scanning coils...");
+                if (logTimer === 4) logMessage("&gt; Geant4: Allocating DoseActor voxel grids (300 voxels, MET_DOUBLE)...");
+                if (logTimer === 6) logMessage("&gt; Geant4: [START] Tracking primary particle events and secondary nuclear reactions...");
+            }, 600);
+
+            try {
+                const response = await fetch('/api/simulate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        type: currentBeam,
+                        energy: energy,
+                        particles: particles,
+                        phantom_type: currentPhantom,
+                        mode: currentTechnique,
+                        bio_model: currentBioModel
+                    })
+                });
+
+                clearInterval(logInterval);
+
+                if (!response.ok) {
+                    const errObj = await response.json();
+                    throw new Error(errObj.error || "Simulation subprocess failed.");
+                }
+
+                const result = await response.json();
+                actualSimulationData = result;
+                
+                logMessage(`&gt; Geant4: [STOP] Simulation completed in background.`, "success");
+                logMessage(`&gt; Biophysical Scorer: Computed 300-voxel dose-averaged LET & LQ cell survival.`, "success");
+                logMessage(`&gt; Biophysics: Max Scored RBE is ${Math.max(...result.rbe).toFixed(2)} inside tumor volume!`, "success");
+
+                startScanAnimation();
+
+            } catch (err) {
+                clearInterval(logInterval);
+                logMessage(`&gt; [Error] Simulation failed: ${err.message}`, "error");
+                logMessage(`&gt; Please verify that server.py is running and there are no core Geant4 errors.`, "warning");
+                resetUIState();
+            }
+        }
+
+        // Run scanning animation
+        function startScanAnimation() {
+            animationProgress = 0;
+            document.getElementById('beamStatus').innerText = "BEAM ACTIVE (IRRADIATING)";
+            document.getElementById('beamStatus').style.color = '#ef4444';
+            
+            function animate() {
+                animationProgress += 0.01;
+                if (animationProgress >= 1) {
+                    animationProgress = 1;
+                    drawPhantom(1);
+                    completeSimulationFlow();
+                } else {
+                    drawPhantom(animationProgress);
+                    animationFrameId = requestAnimationFrame(animate);
+                }
+            }
+            animate();
+        }
+
+        // Finalize simulation complete
+        function completeSimulationFlow() {
+            cancelAnimationFrame(animationFrameId);
+            resetUIState();
+            updateParameters(); // Refresh telemetry
+            logMessage(`&gt; Biophysical dosimetry scan completed. Treatment Plan matched & approved!`, "success");
+        }
+
+        // Reset UI triggers and badges
+        function resetUIState() {
+            isSimulating = false;
+            setUILocked(false);
+            
+            document.getElementById('viewportPanel').classList.remove('scanning-active');
+            
+            const badgeContainer = document.getElementById('badgeContainer');
+            const badgeDot = document.getElementById('badgeDot');
+            const beamStatus = document.getElementById('beamStatus');
+            
+            badgeContainer.style.background = 'rgba(16, 185, 129, 0.1)';
+            badgeContainer.style.borderColor = '#10b981';
+            badgeDot.style.backgroundColor = '#10b981';
+            beamStatus.style.color = '#10b981';
+            beamStatus.innerText = "BEAM NOZZLE READY";
+        }
+
+        // Lock / Unlock inputs
+        function setUILocked(locked) {
+            document.getElementById('energySlider').disabled = locked;
+            document.getElementById('particlesSlider').disabled = locked;
+            document.getElementById('spotSlider').disabled = locked;
+            document.getElementById('protonBtn').disabled = locked;
+            document.getElementById('carbonBtn').disabled = locked;
+            document.getElementById('waterBtn').disabled = locked;
+            document.getElementById('patientBtn').disabled = locked;
+            document.getElementById('singleBtn').disabled = locked;
+            document.getElementById('multifieldBtn').disabled = locked;
+            document.getElementById('sobpBtn').disabled = locked;
+            document.getElementById('simulateBtn').disabled = locked;
+            document.getElementById('exportBtn').disabled = locked;
+            document.getElementById('modelMkmBtn').disabled = locked;
+            document.getElementById('modelLemBtn').disabled = locked;
+            document.getElementById('viewPhysBtn').disabled = locked;
+            document.getElementById('viewBioBtn').disabled = locked;
+            document.getElementById('viewDnaBtn').disabled = locked;
+        }
+
+        // Export Plan summary trigger
+        function exportTreatmentPlan() {
+            if (!actualSimulationData) {
+                alert("WARNING: No OpenGATE simulation has been run yet for this plan.\n" +
+                      "Please run the Monte Carlo simulation (click 'Simulate Irradiation') to validate this plan before exporting.");
+                return;
+            }
+            
+            const maxRBE = Math.max(...actualSimulationData.rbe);
+            const minSurv = Math.min(...actualSimulationData.survival);
+            const maxDSB = Math.max(...actualSimulationData.dsb);
+            
+            alert(`--- CLINICAL HADRON BIOPHYSICAL TREATMENT PLAN EXPORT ---\n` +
+                  `Target Geometry: ${actualSimulationData.phantom_type.toUpperCase()} PHANTOM\n` +
+                  `Treatment Mode: ${actualSimulationData.mode.toUpperCase()}\n` +
+                  `Beam Modality: ${actualSimulationData.modality.toUpperCase()}\n` +
+                  `Radiobiology Model: ${actualSimulationData.bio_model.toUpperCase()}\n` +
+                  `Prescribed Energy: ${actualSimulationData.energy.toFixed(1)} MeV\n` +
+                  `Monte Carlo Scored Particles: ${actualSimulationData.particles.toLocaleString()} p\n` +
+                  `Physical Range (d90): ${actualSimulationData.r90.toFixed(2)} cm\n` +
+                  `Max Scored RBE Factor: ${maxRBE.toFixed(2)}\n` +
+                  `Tumor Biological Peak Dose: ${(2.0 * maxRBE).toFixed(2)} Gy(RBE)\n` +
+                  `Max Tumor cell DSB breaks: ${maxDSB.toFixed(1)} DSB/cell\n` +
+                  `Tumor Cell Survival (SF%): ${minSurv.toFixed(3)}%\n` +
+                  `Normal Tissue Sparing (SF%): ${actualSimulationData.survival[50].toFixed(1)}%\n` +
+                  `Status: BIOPHYSICALLY VALIDATED & APPROVED`);
+                  
+            logMessage("Biophysical treatment plan successfully exported.", "success");
+        }
+
+        // ---------------------------------------------------------------------
+        // Spinning DNA 2D Canvas Micro-Visualizer Animation (Phase 4 Upgrade)
+        // ---------------------------------------------------------------------
+        let dnaAngle = 0;
+        
+        function startDnaAnimation() {
+            function drawDnaFrame() {
+                const w = dnaCanvas.width;
+                const h = dnaCanvas.height;
+                dnaCtx.clearRect(0, 0, w, h);
+                
+                // Draw background grid circle
+                dnaCtx.fillStyle = '#030712';
+                dnaCtx.fillRect(0, 0, w, h);
+                
+                dnaCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                dnaCtx.lineWidth = 1;
+                dnaCtx.beginPath();
+                dnaCtx.arc(w/2, h/2, w/2 - 2, 0, 2*Math.PI);
+                dnaCtx.stroke();
+                
+                // Rotation angle increment
+                dnaAngle += 0.025;
+                
+                const numNodes = 12;
+                const amplitude = w * 0.28;
+                const centerY = h * 0.5;
+                
+                let isDnaBroken = false;
+                let statusLabel = "DNA INTACT";
+                let statusColor = "rgba(148, 163, 184, 0.8)"; // grey
+                
+                // Check if the simulation is active and has entered high LET peak tumor zones!
+                if (isSimulating && animationProgress >= 0.52 && animationProgress <= 0.68) {
+                    isDnaBroken = true;
+                    statusLabel = "FATAL DSB";
+                    statusColor = "#ef4444"; // red
+                } else if (isSimulating && animationProgress > 0 && animationProgress < 0.52) {
+                    statusLabel = "SSB DETECTED";
+                    statusColor = "#3b82f6"; // blue
+                } else if (actualSimulationData) {
+                    // Post-simulation results based on tumor survival!
+                    const minSurv = Math.min(...actualSimulationData.survival);
+                    if (minSurv < 1.0) {
+                        isDnaBroken = true;
+                        statusLabel = "TUMOR DEAD";
+                        statusColor = "#ef4444";
+                    }
+                }
+                
+                // Update DNA Status Text label at the bottom of the card
+                document.getElementById('dnaStatusLabel').innerText = statusLabel;
+                document.getElementById('dnaStatusLabel').style.color = statusColor;
+
+                // Draw strands
+                for (let i = 0; i < numNodes; i++) {
+                    const relativePos = i / numNodes;
+                    const x = w * 0.15 + relativePos * (w * 0.7);
+                    
+                    // Sine waves phase-shifted by Pi
+                    const phase = dnaAngle + relativePos * Math.PI * 2.2;
+                    let y1 = centerY + Math.sin(phase) * amplitude;
+                    let y2 = centerY - Math.sin(phase) * amplitude;
+                    
+                    // If DNA is broken, snap the double helix and let the strands drift apart!
+                    if (isDnaBroken && relativePos > 0.4 && relativePos < 0.6) {
+                        // Exploded snap!
+                        y1 = y1 + (Math.sin(dnaAngle * 3) * 8) + 12;
+                        y2 = y2 - (Math.cos(dnaAngle * 3) * 8) - 12;
+                        
+                        // Draw energy sparks in between the snapped strands!
+                        if (Math.random() > 0.5) {
+                            dnaCtx.fillStyle = '#f59e0b';
+                            dnaCtx.beginPath();
+                            dnaCtx.arc(x + (Math.random() - 0.5)*10, centerY + (Math.random() - 0.5)*12, Math.random()*2 + 1, 0, 2*Math.PI);
+                            dnaCtx.fill();
+                        }
+                    } else {
+                        // Draw connecting base pair rungs
+                        dnaCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                        dnaCtx.lineWidth = 1.5;
+                        dnaCtx.beginPath();
+                        dnaCtx.moveTo(x, y1);
+                        dnaCtx.lineTo(x, y2);
+                        dnaCtx.stroke();
+                    }
+
+                    // Node 1 (Strand A)
+                    let nodeColorA = (currentBeam === 'proton') ? 'rgba(0, 242, 254, 0.85)' : 'rgba(255, 65, 108, 0.85)';
+                    if (isDnaBroken && relativePos > 0.4 && relativePos < 0.6) {
+                        nodeColorA = '#ef4444'; // Red fatal break!
+                    } else if (isSimulating && animationProgress > 0 && animationProgress < 0.52 && i % 4 === 0) {
+                        nodeColorA = '#3b82f6'; // Blue SSB break!
+                    }
+                    
+                    dnaCtx.fillStyle = nodeColorA;
+                    dnaCtx.beginPath();
+                    // 3D sizing depth cue
+                    const r1 = 3.5 + Math.cos(phase) * 1.5;
+                    dnaCtx.arc(x, y1, r1, 0, 2*Math.PI);
+                    dnaCtx.fill();
+                    
+                    // Node 2 (Strand B)
+                    let nodeColorB = (currentBeam === 'proton') ? 'rgba(0, 242, 254, 0.85)' : 'rgba(255, 65, 108, 0.85)';
+                    if (isDnaBroken && relativePos > 0.4 && relativePos < 0.6) {
+                        nodeColorB = '#ef4444';
+                    }
+                    dnaCtx.fillStyle = nodeColorB;
+                    dnaCtx.beginPath();
+                    const r2 = 3.5 - Math.cos(phase) * 1.5;
+                    dnaCtx.arc(x, y2, r2, 0, 2*Math.PI);
+                    dnaCtx.fill();
+                }
+                
+                dnaAnimationFrameId = requestAnimationFrame(drawDnaFrame);
+            }
+            drawDnaFrame();
+        }
+    </script>
+</body>
+</html>

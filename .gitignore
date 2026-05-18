@@ -1,0 +1,45 @@
+# ==============================================================================
+#                      Hadron Therapy TPS Console .gitignore
+# ==============================================================================
+
+# --- Python Virtual Environments & Environments ---
+venv/
+.venv/
+env/
+.env/
+ENV/
+*.venv
+
+# --- Python Cache & Compiled Bytes ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+
+# --- Simulation Generated Scored Data (Large Binary Volumes) ---
+output/
+*.raw
+*.mhd
+*.raw.gz
+*.mhd.gz
+
+# --- Geant4 Data Libraries & Temporary Downloads ---
+data/
+geant4_data/
+*.g4data
+*.tmp
+
+# --- System & IDE Specific Exclusions ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Agentic Workspaces & Logs ---
+artifacts/
+.gemini/
+.antigravity/
